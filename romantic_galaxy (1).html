@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planet Kenangan Lea</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            background: #000;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .info {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            text-align: center;
+            z-index: 100;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+        }
+
+        .romantic-text {
+            position: fixed;
+            color: #ff69b4;
+            font-size: 20px;
+            font-weight: 500;
+            text-shadow: 
+                0 0 15px rgba(255, 105, 180, 0.8),
+                0 0 25px rgba(255, 20, 147, 0.5);
+            opacity: 0;
+            animation: floatText 10s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 50;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            letter-spacing: 1px;
+        }
+
+        @keyframes floatText {
+            0%, 100% { 
+                opacity: 0; 
+                transform: translateY(0) scale(0.8);
+            }
+            25%, 75% { 
+                opacity: 1; 
+                transform: translateY(-20px) scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: translateY(-40px) scale(1.1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div class="info">🖱️ Drag untuk memutar | 🔍 Scroll untuk zoom | 💖 Galaksi Kenangan Lea</div>
+
+    <div id="floatingTexts"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const romanticTexts = [
+            "I Love You Lea ❤️",
+            "Lea Sayangku 💕",
+            "Forever with Lea 💖",
+            "My Lea 💗",
+            "Cinta untuk Lea 💘",
+            "Lea Always 💝",
+            "Kamu Istimewa Lea ✨",
+            "Lea My Heart 💓",
+            "Lea My Soul 💫",
+            "Dear Lea 🌹",
+            "Lea Forever 💞",
+            "I Need You Lea 💟",
+            "Lea My Everything 🌟",
+            "With You Lea 💌",
+            "Lea My Love 💗",
+            "You & Me Lea 💕",
+            "Lea Tercinta 💖",
+            "My Queen Lea 👑",
+            "Lea Sayang 💝",
+            "Love Lea 4ever ♾️"
+        ];
+
+        // Foto-foto Lea dengan CORS proxy
+        const photoUrls = [
+            'https://i.postimg.cc/5tSHCXfp/Whats-App-Image-2025-10-17-at-17-48-13.jpg',
+            'https://i.postimg.cc/SKfXMny0/Whats-App-Image-2025-10-17-at-17-48-14.jpg',
+            'https://i.postimg.cc/257qZ1CP/Whats-App-Image-2025-10-17-at-17-48-14-1.jpg',
+            'https://i.postimg.cc/43QK9YXM/Whats-App-Image-2025-10-17-at-17-48-14-2.jpg',
+            'https://i.postimg.cc/XvkZCrVN/Whats-App-Image-2025-10-17-at-17-48-15.jpg',
+            'https://i.postimg.cc/6Qf7v8BF/Whats-App-Image-2025-10-17-at-17-48-15-1.jpg',
+            'https://i.postimg.cc/N0kyHKgt/Whats-App-Image-2025-10-17-at-17-48-15-2.jpg',
+            'https://i.postimg.cc/vmt1V4Qm/Whats-App-Image-2025-10-17-at-17-48-16.jpg',
+            'https://i.postimg.cc/VNWSCJYz/Whats-App-Image-2025-10-17-at-17-48-16-1.jpg'
+        ];
+
+        let scene, camera, renderer, planet, galaxySpiral;
+        let photoPlanes = [];
+        let stars = [];
+        let isDragging = false;
+        let previousMouse = { x: 0, y: 0 };
+        let targetRotation = { x: 0, y: 0 };
+        let currentRotation = { x: 0, y: 0 };
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+            camera.position.z = 25;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            createGalaxyBackground();
+            createStarField();
+            createRealisticPlanet();
+            createPhotoRings();
+            createFloatingTexts();
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfff4e6, 1.5);
+            sunLight.position.set(20, 15, 20);
+            scene.add(sunLight);
+
+            const backLight = new THREE.DirectionalLight(0x4488ff, 0.6);
+            backLight.position.set(-15, -10, -15);
+            scene.add(backLight);
+
+            const pointLight = new THREE.PointLight(0xffaa66, 1, 150);
+            pointLight.position.set(0, 0, 20);
+            scene.add(pointLight);
+
+            window.addEventListener('resize', onWindowResize);
+            renderer.domElement.addEventListener('mousedown', onMouseDown);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+            renderer.domElement.addEventListener('mouseup', onMouseUp);
+            renderer.domElement.addEventListener('wheel', onWheel);
+            renderer.domElement.addEventListener('touchstart', onTouchStart);
+            renderer.domElement.addEventListener('touchmove', onTouchMove);
+            renderer.domElement.addEventListener('touchend', onTouchEnd);
+
+            animate();
+        }
+
+        function createGalaxyBackground() {
+            const galaxyGeometry = new THREE.BufferGeometry();
+            const galaxyVertices = [];
+            const galaxyColors = [];
+
+            for (let i = 0; i < 30000; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * 500 + 100;
+                const height = (Math.random() - 0.5) * 50;
+
+                const x = Math.cos(angle) * radius;
+                const y = height;
+                const z = Math.sin(angle) * radius;
+
+                galaxyVertices.push(x, y, z);
+
+                const color = new THREE.Color();
+                color.setHSL(0.6 + Math.random() * 0.2, 0.8, 0.5 + Math.random() * 0.3);
+                galaxyColors.push(color.r, color.g, color.b);
+            }
+
+            galaxyGeometry.setAttribute('position', new THREE.Float32BufferAttribute(galaxyVertices, 3));
+            galaxyGeometry.setAttribute('color', new THREE.Float32BufferAttribute(galaxyColors, 3));
+
+            const galaxyMaterial = new THREE.PointsMaterial({
+                size: 1.5,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending
+            });
+
+            galaxySpiral = new THREE.Points(galaxyGeometry, galaxyMaterial);
+            scene.add(galaxySpiral);
+        }
+
+        function createStarField() {
+            const starGeometry = new THREE.BufferGeometry();
+            const starMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 1.2,
+                transparent: true,
+                opacity: 0.9
+            });
+
+            const starVertices = [];
+            for (let i = 0; i < 20000; i++) {
+                const x = (Math.random() - 0.5) * 3000;
+                const y = (Math.random() - 0.5) * 3000;
+                const z = (Math.random() - 0.5) * 3000;
+                starVertices.push(x, y, z);
+            }
+
+            starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+            const starField = new THREE.Points(starGeometry, starMaterial);
+            scene.add(starField);
+            stars.push(starField);
+        }
+
+        function createRealisticPlanet() {
+            const geometry = new THREE.SphereGeometry(5, 128, 128);
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 2048;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            
+            // Base gradient - Earth-like colors
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, '#0a4d68');
+            gradient.addColorStop(0.2, '#088395');
+            gradient.addColorStop(0.4, '#05bfdb');
+            gradient.addColorStop(0.6, '#00d9ff');
+            gradient.addColorStop(0.8, '#7dd3fc');
+            gradient.addColorStop(1, '#a5f3fc');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Add continents/clouds
+            for (let i = 0; i < 300; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = Math.random() * 100 + 30;
+                
+                const cloudGradient = ctx.createRadialGradient(x, y, 0, x, y, size);
+                cloudGradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+                cloudGradient.addColorStop(0.5, 'rgba(200, 220, 255, 0.2)');
+                cloudGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                
+                ctx.fillStyle = cloudGradient;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Add land masses
+            for (let i = 0; i < 150; i++) {
+                ctx.fillStyle = `rgba(34, 139, 34, ${Math.random() * 0.3 + 0.2})`;
+                ctx.beginPath();
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                ctx.arc(x, y, Math.random() * 80 + 40, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            
+            const material = new THREE.MeshPhongMaterial({
+                map: texture,
+                shininess: 60,
+                specular: 0x555555,
+                emissive: 0x112244,
+                emissiveIntensity: 0.1
+            });
+
+            planet = new THREE.Mesh(geometry, material);
+            scene.add(planet);
+
+            // Atmosphere
+            const atmosphereGeometry = new THREE.SphereGeometry(5.4, 128, 128);
+            const atmosphereMaterial = new THREE.MeshBasicMaterial({
+                color: 0x4488ff,
+                transparent: true,
+                opacity: 0.15,
+                side: THREE.BackSide
+            });
+            const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+            planet.add(atmosphere);
+
+            // Inner glow
+            const glowGeometry = new THREE.SphereGeometry(5.2, 64, 64);
+            const glowMaterial = new THREE.MeshBasicMaterial({
+                color: 0x88ccff,
+                transparent: true,
+                opacity: 0.1,
+                side: THREE.BackSide
+            });
+            const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+            planet.add(glow);
+        }
+
+        function createPhotoRings() {
+            const rings = [
+                { radius: 9, count: 20, tilt: 0, speed: 0.002 },
+                { radius: 11, count: 24, tilt: Math.PI / 8, speed: 0.0018 },
+                { radius: 13, count: 28, tilt: Math.PI / 6, speed: 0.0015 },
+                { radius: 15, count: 32, tilt: -Math.PI / 8, speed: 0.0012 },
+                { radius: 17, count: 36, tilt: -Math.PI / 5, speed: 0.001 }
+            ];
+
+            let photoIndex = 0;
+            const loader = new THREE.TextureLoader();
+            // Tidak pakai crossOrigin karena bisa bikin error di beberapa host
+            
+            // Fungsi untuk load dengan fallback
+            const loadPhotoTexture = (url, callback) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const texture = new THREE.CanvasTexture(canvas);
+                    texture.minFilter = THREE.LinearFilter;
+                    texture.magFilter = THREE.LinearFilter;
+                    callback(texture);
+                };
+                img.onerror = function() {
+                    console.log('Gagal load, pakai placeholder');
+                    callback(null);
+                };
+                img.src = url;
+            };
+
+            rings.forEach((ring, ringIndex) => {
+                for (let i = 0; i < ring.count; i++) {
+                    const planeGeometry = new THREE.PlaneGeometry(1.2, 1.5);
+                    
+                    // Ulang foto dari awal jika sudah habis
+                    const currentPhotoIndex = photoIndex % photoUrls.length;
+                    const currentPhotoUrl = photoUrls[currentPhotoIndex];
+                    
+                    // Buat material default dulu (transparan)
+                    const material = new THREE.MeshPhongMaterial({
+                        color: 0xffffff,
+                        side: THREE.DoubleSide,
+                        transparent: true,
+                        opacity: 0,
+                        shininess: 30
+                    });
+
+                    const photoPlane = new THREE.Mesh(planeGeometry, material);
+
+                    // Load texture dengan method baru
+                    loadPhotoTexture(currentPhotoUrl, function(texture) {
+                        if (texture) {
+                            material.map = texture;
+                            material.opacity = 1;
+                            material.needsUpdate = true;
+                            console.log('✓ Foto loaded:', currentPhotoIndex + 1);
+                        } else {
+                            // Kalau gagal load, biarkan transparan (tidak tampil)
+                            console.log('× Foto tidak bisa load:', currentPhotoIndex + 1);
+                        }
+                    });
+
+                    const angle = (i / ring.count) * Math.PI * 2;
+                    
+                    photoPlane.position.x = ring.radius * Math.cos(angle);
+                    photoPlane.position.y = ring.radius * Math.sin(angle) * Math.sin(ring.tilt);
+                    photoPlane.position.z = ring.radius * Math.sin(angle) * Math.cos(ring.tilt);
+
+                    // Orientasi foto menghadap planet
+                    photoPlane.lookAt(0, 0, 0);
+
+                    photoPlane.userData = {
+                        angle: angle,
+                        radius: ring.radius,
+                        tilt: ring.tilt,
+                        speed: ring.speed,
+                        ringIndex: ringIndex
+                    };
+
+                    scene.add(photoPlane);
+                    photoPlanes.push(photoPlane);
+
+                    // Border/frame untuk foto
+                    const borderGeometry = new THREE.PlaneGeometry(1.3, 1.6);
+                    const borderMaterial = new THREE.MeshBasicMaterial({
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0.3,
+                        side: THREE.DoubleSide
+                    });
+                    const border = new THREE.Mesh(borderGeometry, borderMaterial);
+                    border.position.z = -0.01;
+                    photoPlane.add(border);
+
+                    // Glow effect
+                    const glowGeometry = new THREE.PlaneGeometry(1.5, 1.8);
+                    const glowMaterial = new THREE.MeshBasicMaterial({
+                        color: 0xff69b4,
+                        transparent: true,
+                        opacity: 0.15,
+                        side: THREE.DoubleSide
+                    });
+                    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                    glow.position.z = -0.02;
+                    photoPlane.add(glow);
+
+                    photoIndex++;
+                }
+            });
+        }
+
+        function createFloatingTexts() {
+            const container = document.getElementById('floatingTexts');
+            
+            romanticTexts.forEach((text, index) => {
+                const textDiv = document.createElement('div');
+                textDiv.className = 'romantic-text';
+                textDiv.textContent = text;
+                
+                const positions = [
+                    { left: '10%', top: '15%' },
+                    { left: '85%', top: '20%' },
+                    { left: '15%', top: '75%' },
+                    { left: '80%', top: '70%' },
+                    { left: '50%', top: '10%' },
+                    { left: '5%', top: '50%' },
+                    { left: '90%', top: '45%' },
+                    { left: '30%', top: '85%' },
+                    { left: '70%', top: '90%' },
+                    { left: '45%', top: '80%' }
+                ];
+                
+                const pos = positions[index % positions.length];
+                textDiv.style.left = pos.left;
+                textDiv.style.top = pos.top;
+                textDiv.style.animationDelay = `${index * 0.5}s`;
+                
+                container.appendChild(textDiv);
+            });
+        }
+
+        function onMouseDown(e) {
+            isDragging = true;
+            previousMouse = { x: e.clientX, y: e.clientY };
+        }
+
+        function onMouseMove(e) {
+            if (isDragging) {
+                const deltaX = e.clientX - previousMouse.x;
+                const deltaY = e.clientY - previousMouse.y;
+                targetRotation.y += deltaX * 0.005;
+                targetRotation.x += deltaY * 0.005;
+                previousMouse = { x: e.clientX, y: e.clientY };
+            }
+        }
+
+        function onMouseUp() {
+            isDragging = false;
+        }
+
+        function onWheel(e) {
+            e.preventDefault();
+            camera.position.z += e.deltaY * 0.02;
+            camera.position.z = Math.max(12, Math.min(50, camera.position.z));
+        }
+
+        let lastTouch = { x: 0, y: 0 };
+
+        function onTouchStart(e) {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+        }
+
+        function onTouchMove(e) {
+            if (isDragging && e.touches.length === 1) {
+                const deltaX = e.touches[0].clientX - lastTouch.x;
+                const deltaY = e.touches[0].clientY - lastTouch.y;
+                targetRotation.y += deltaX * 0.005;
+                targetRotation.x += deltaY * 0.005;
+                lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+        }
+
+        function onTouchEnd() {
+            isDragging = false;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            currentRotation.x += (targetRotation.x - currentRotation.x) * 0.05;
+            currentRotation.y += (targetRotation.y - currentRotation.y) * 0.05;
+
+            if (planet) {
+                planet.rotation.y += 0.001;
+            }
+
+            if (galaxySpiral) {
+                galaxySpiral.rotation.z += 0.0002;
+            }
+
+            photoPlanes.forEach((plane) => {
+                const data = plane.userData;
+                data.angle += data.speed;
+
+                plane.position.x = data.radius * Math.cos(data.angle);
+                plane.position.y = data.radius * Math.sin(data.angle) * Math.sin(data.tilt);
+                plane.position.z = data.radius * Math.sin(data.angle) * Math.cos(data.tilt);
+
+                plane.lookAt(0, 0, 0);
+            });
+
+            scene.rotation.x = currentRotation.x;
+            scene.rotation.y = currentRotation.y;
+
+            stars.forEach(star => {
+                star.rotation.y += 0.0001;
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
